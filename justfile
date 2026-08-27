@@ -21,7 +21,7 @@ backend-dev:
 
 # Run backend tests
 backend-test:
-    cd backend && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]" -q && .venv/bin/pytest tests/ -v
+    cd backend && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]" -q && .venv/bin/pytest tests/
 
 # Run backend linting
 backend-lint:
