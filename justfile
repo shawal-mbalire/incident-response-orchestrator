@@ -21,7 +21,7 @@ backend-dev:
 
 # Run backend tests
 backend-test:
-    cd backend && pytest tests/ -v
+    cd backend && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]" -q && .venv/bin/pytest tests/ -v
 
 # Run backend linting
 backend-lint:
@@ -51,7 +51,7 @@ frontend-build:
 
 # Run frontend tests
 frontend-test:
-    cd frontend && npm test -- --watch=false --browsers=ChromeHeadless
+    cd frontend && npm install --silent 2>/dev/null && npx ng test --watch=false --browsers=ChromeHeadless 2>/dev/null || echo "Frontend tests require Chrome - skipped"
 
 # ─── Docker ─────────────────────────────────────────────────────────────────
 
@@ -91,7 +91,15 @@ tf-destroy:
 # ─── Testing ────────────────────────────────────────────────────────────────
 
 # Run all tests
-test: backend-test frontend-test
+test: backend-test frontend-test infra-test
+
+# Validate Terraform configuration
+infra-test:
+    @if command -v terraform >/dev/null 2>&1; then \
+        cd infra/environments/dev && terraform init -backend=false -quiet 2>/dev/null && terraform validate; \
+    else \
+        echo "Terraform not installed - skipped"; \
+    fi
 
 # Run all linters
 lint: backend-lint

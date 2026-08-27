@@ -148,7 +148,8 @@ class IncidentService:
 
     def _assess_impact(self, alert: Alert, metrics: dict) -> str:
         severity = alert.severity.value
-        error_rate = metrics.get("error_rate", 0)
+        error_rate_data = metrics.get("error_rate", {})
+        error_rate = error_rate_data.get("current", 0) if isinstance(error_rate_data, dict) else 0
 
         if severity == "critical" or error_rate > 10:
             return "Critical impact - production service degraded, immediate action required."
