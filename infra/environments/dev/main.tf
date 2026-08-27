@@ -25,6 +25,7 @@ locals {
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "iam.googleapis.com",
+    "firestore.googleapis.com",
   ]
 }
 
@@ -64,4 +65,13 @@ module "monitoring" {
   backend_service_name = "${var.project_name}-backend"
 
   depends_on = [module.cloud_run]
+}
+
+module "firestore" {
+  source       = "../../modules/firestore"
+  project_id   = var.project_id
+  project_name = var.project_name
+  region       = var.region
+
+  depends_on = [google_project_service.required]
 }

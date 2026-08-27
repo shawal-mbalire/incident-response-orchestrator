@@ -6,7 +6,7 @@ def create_synthesizer_agent() -> LlmAgent:
 
     return LlmAgent(
         name="SynthesizerAgent",
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         instruction="""You are an incident synthesis specialist. Your job is to combine findings from multiple analysis agents to identify the root cause.
 
 You will receive:

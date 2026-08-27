@@ -8,7 +8,7 @@ def create_deploy_tracker_agent(deployments_toolset: DeploymentsToolset) -> LlmA
 
     return LlmAgent(
         name="DeployTrackerAgent",
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         instruction="""You are a deployment tracking specialist. Your job is to check recent deployments and correlate them with incidents.
 
 When given a service name and time range:

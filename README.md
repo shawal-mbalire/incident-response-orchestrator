@@ -1,153 +1,281 @@
 # Incident Response Orchestrator
 
-Multi-agent incident response system built with Google ADK, hexagonal architecture, and Angular 22.
+> **All Things Agentic Hackathon** — Taskmaster Track
 
-> **Track:** Taskmaster — Event-driven autonomous workflows
+Multi-agent incident response system that automates production debugging. When alerts fire, three AI agents work in parallel to analyze logs, metrics, and deployments — then synthesize findings into a structured incident report with root cause analysis.
 
-## What It Does
+**Demo Video:** [YouTube](link-to-demo)  
+**Live URL:** [Cloud Run](link-to-deployed-app)
 
-When production breaks, engineers waste 30+ minutes context-switching between logs, metrics, alerts, and docs. This agent system does that work in **60 seconds**.
+## Problem
 
-1. **Alert fires** — You input the alert details
-2. **3 agents work in parallel** — Log forensics, metrics analysis, deployment tracking
-3. **Synthesizer combines findings** — Identifies root cause with confidence level
-4. **Report generated** — Structured incident report with timeline, evidence, and actions
+When production breaks, engineers waste 30+ minutes context-switching between:
+- Log dashboards (Cloud Logging, ELK)
+- Metrics views (Cloud Monitoring, Grafana)
+- Deployment history (Cloud Run, GitHub)
+- Slack threads and runbooks
+
+This agent system does that work in **60 seconds**.
+
+## Solution
+
+```mermaid
+graph LR
+    A[Alert Input] --> B[Coordinator]
+    B --> C[Parallel Analysis]
+    C --> D[Log Forensics Agent]
+    C --> E[Metrics Analyzer Agent]
+    C --> F[Deploy Tracker Agent]
+    D --> G[Synthesizer Agent]
+    E --> G
+    F --> G
+    G --> H[Report Generator]
+    H --> I[Structured Report]
+```
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
+| **AI Model** | Gemini 3.5 Flash |
 | **Agent Framework** | Google ADK (Agent Development Kit) |
 | **Architecture** | Hexagonal (Ports & Adapters) |
 | **Backend** | Python 3.12+, FastAPI |
 | **Frontend** | Angular 22 (Signals, httpResource) |
 | **Infrastructure** | Terraform, Google Cloud Run |
-| **Cloud APIs** | Cloud Logging, Cloud Monitoring, Cloud Run |
+| **Cloud Services** | Cloud Logging, Cloud Monitoring, Firestore, Cloud Run |
 
-## Quick Start
+## Spin-Up Instructions
 
 ### Prerequisites
 
 - Python 3.12+
 - Node.js 22+
-- Google Cloud SDK
+- Google Cloud SDK (`gcloud`)
 - Terraform (optional, for deployment)
+- Just command runner (`brew install just`)
 
-### Backend
+### 1. Clone and Setup
+
+```bash
+git clone https://github.com/shawal-mbalire/incident-response-orchestrator.git
+cd incident-response-orchestrator
+```
+
+### 2. Backend Setup
 
 ```bash
 cd backend
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
 pip install -e ".[dev]"
 
-# Run with ADK web UI
+# Copy environment file
+cp .env.example .env
+
+# Edit .env with your GCP project ID
+# AGENT_GCP_PROJECT_ID=your-project-id
+
+# Run with ADK web UI (recommended for testing)
 adk web src/incident_response
 
 # Or run with uvicorn
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8080
 ```
 
-### Frontend
+The ADK web UI will be available at `http://localhost:8000`.
+
+### 3. Frontend Setup
 
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+
+# Start development server
 npm start
 ```
 
-The frontend runs on `http://localhost:4200` and proxies API calls to the backend on port 8080.
+The frontend will be available at `http://localhost:4200`.
+
+### 4. Running Tests
+
+```bash
+# Run all tests (backend + frontend + infra)
+just test
+
+# Or run individually
+just backend-test    # Python tests
+just frontend-test   # Angular tests
+just infra-test      # Terraform validate
+```
+
+### 5. Deploy to Google Cloud
+
+#### Option A: Using Terraform + Docker
+
+```bash
+# 1. Authenticate with GCP
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+# 2. Enable required APIs
+gcloud services enable run.googleapis.com \
+  cloudresourcemanager.googleapis.com \
+  secretmanager.googleapis.com \
+  logging.googleapis.com \
+  monitoring.googleapis.com \
+  artifactregistry.googleapis.com \
+  firestore.googleapis.com
+
+# 3. Build and push Docker images
+export PROJECT_ID=your-project-id
+export REGION=us-central1
+
+# Build backend
+docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/incident-response/backend:latest ./backend
+docker push $REGION-docker.pkg.dev/$PROJECT_ID/incident-response/backend:latest
+
+# Build frontend
+docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/incident-response/frontend:latest ./frontend
+docker push $REGION-docker.pkg.dev/$PROJECT_ID/incident-response/frontend:latest
+
+# 4. Deploy with Terraform
+cd infra/environments/dev
+# Edit terraform.tfvars with your values
+terraform init
+terraform plan
+terraform apply
+```
+
+#### Option B: Using gcloud CLI (quick deploy)
+
+```bash
+# Deploy backend
+gcloud run deploy incident-response-backend \
+  --source ./backend \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="AGENT_ENVIRONMENT=production,AGENT_GCP_PROJECT_ID=your-project-id"
+
+# Deploy frontend
+gcloud run deploy incident-response-frontend \
+  --source ./frontend \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+
+### 6. Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGENT_ENVIRONMENT` | `development` | `development` or `production` |
+| `AGENT_GCP_PROJECT_ID` | — | Your Google Cloud project ID |
+| `AGENT_GCP_REGION` | `us-central1` | GCP region |
+| `AGENT_AGENT_MODEL` | `gemini-3.5-flash` | Gemini model to use |
+
+## Architecture
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture documentation with Mermaid diagrams.
+
+### Hexagonal Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Domain Layer                          │
+│  (Models, Ports, Services - zero external dependencies) │
+└─────────────────────────────────────────────────────────┘
+                        ▲
+                        │ implements
+┌───────────────────────┴─────────────────────────────────┐
+│                   Port Interfaces                        │
+│  MonitoringPort | DeploymentPort | StateStorePort        │
+└─────────────────────────────────────────────────────────┘
+                        ▲
+                        │ adapts
+┌───────────────────────┴─────────────────────────────────┐
+│                  Outbound Adapters                       │
+│  CloudLoggingAdapter | CloudMonitoringAdapter            │
+│  CloudRunAdapter | FirestoreAdapter | InMemoryAdapters  │
+└─────────────────────────────────────────────────────────┘
+                        ▲
+                        │ bridges
+┌───────────────────────┴─────────────────────────────────┐
+│                   ADK Toolsets                           │
+│  MonitoringToolset | DeploymentsToolset                  │
+└─────────────────────────────────────────────────────────┘
+                        ▲
+                        │ uses
+┌───────────────────────┴─────────────────────────────────┐
+│                  ADK Agents                              │
+│  SequentialAgent → ParallelAgent → Synthesizer → Report  │
+└─────────────────────────────────────────────────────────┘
+```
 
 ## Project Structure
 
 ```
 all_things_agentic_hack/
-├── backend/                          # Python ADK Agent (Hexagonal Architecture)
+├── backend/                          # Python ADK Agent
 │   ├── src/incident_response/
-│   │   ├── domain/                   # Core business logic (zero external deps)
-│   │   ├── adapters/                 # Concrete implementations (GCP, In-Memory)
-│   │   ├── toolsets/                 # ADK bridges (ports → FunctionTools)
+│   │   ├── domain/                   # Core (zero external deps)
+│   │   ├── adapters/                 # Google Cloud + In-Memory
+│   │   ├── toolsets/                 # ADK bridges
 │   │   ├── agents/                   # Multi-agent orchestration
 │   │   └── app/                      # Factory, entry points
-│   └── main.py                       # FastAPI entry point
+│   └── main.py                       # FastAPI
 │
-├── frontend/                         # Angular 22 Dashboard
-│   └── src/app/features/             # Dashboard, Alert Input, Report View
+├── frontend/                         # Angular 22
+│   └── src/app/features/             # Dashboard, Alert, Report
 │
-├── infra/                            # Terraform IaC
-│   ├── modules/                      # Cloud Run, IAM, Monitoring
-│   └── environments/                 # Dev/Prod configs
+├── infra/                            # Terraform
+│   ├── modules/                      # cloud_run, iam, monitoring, firestore
+│   └── environments/dev/             # Dev config
 │
-├── ARCHITECTURE.md                   # Detailed architecture docs
-├── justfile                          # Task runner
-└── README.md
+├── ARCHITECTURE.md                   # Architecture docs
+├── README.md                         # This file
+└── justfile                          # Task runner
 ```
 
-## Usage
-
-### Create an Alert
-
-1. Navigate to the dashboard
-2. Click "New Alert"
-3. Select service, severity, and describe the issue
-4. Click "Trigger Analysis"
-
-### View Reports
-
-After analysis completes, you'll see:
-- **Executive Summary** — 1-2 sentence overview
-- **Root Cause** — With confidence level (high/medium/low)
-- **Timeline** — Chronological events
-- **Impact Assessment** — Business impact
-- **Recommended Actions** — Specific next steps
-- **Supporting Evidence** — Raw data from agents
-
-## Development
-
-### Using just
+## Task Runner Commands
 
 ```bash
-# List all commands
-just
+just --list              # List all commands
 
 # Backend
-just backend-install
-just backend-adk        # Run with ADK web UI
-just backend-dev        # Run with uvicorn
-just backend-test       # Run tests
-just backend-lint       # Lint code
+just backend-adk         # Run with ADK web UI
+just backend-dev         # Run with uvicorn
+just backend-test        # Run tests
+just backend-lint        # Lint code
 
 # Frontend
-just frontend-install
-just frontend-dev       # Start dev server
-just frontend-build     # Build for production
+just frontend-dev        # Start dev server
+just frontend-build      # Build for production
 
-# Docker
-just docker-build       # Build all images
-just docker-backend-run # Run backend in Docker
-
-# Terraform
-just tf-init            # Initialize Terraform
-just tf-plan            # Preview changes
-just tf-apply           # Apply changes
+# Infrastructure
+just tf-init             # Initialize Terraform
+just tf-plan             # Preview changes
+just tf-apply            # Apply changes
 
 # All-in-one
-just dev                # Start all dev servers
-just test               # Run all tests
-just lint               # Run all linters
-just format             # Format all code
+just test                # Run all tests
+just lint                # Run all linters
+just dev                 # Start all dev servers
 ```
 
-## Environment Variables
+## Google Cloud Services Used
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_ENVIRONMENT` | `development` | Environment (development/production) |
-| `AGENT_GCP_PROJECT_ID` | — | Google Cloud project ID |
-| `AGENT_GCP_REGION` | `us-central1` | Google Cloud region |
-| `AGENT_AGENT_MODEL` | `gemini-2.5-flash` | Gemini model to use |
-
-## Architecture
-
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture documentation with diagrams.
+- **Gemini 3.5 Flash** — AI model for agent reasoning
+- **Cloud Run** — Backend and frontend hosting
+- **Cloud Logging** — Log analysis
+- **Cloud Monitoring** — Metrics analysis
+- **Firestore** — Persistent incident report storage
+- **Cloud Build** — Container builds
 
 ## License
 

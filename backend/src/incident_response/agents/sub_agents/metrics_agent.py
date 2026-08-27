@@ -8,7 +8,7 @@ def create_metrics_agent(monitoring_toolset: MonitoringToolset) -> LlmAgent:
 
     return LlmAgent(
         name="MetricsAnalyzerAgent",
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         instruction="""You are a metrics analysis specialist. Your job is to fetch and analyze performance metrics.
 
 When given a service name and time range:

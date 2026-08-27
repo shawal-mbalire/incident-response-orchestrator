@@ -8,7 +8,7 @@ def create_log_forensics_agent(monitoring_toolset: MonitoringToolset) -> LlmAgen
 
     return LlmAgent(
         name="LogForensicsAgent",
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         instruction="""You are a log forensics specialist. Your job is to analyze error logs and identify patterns.
 
 When given a service name and time range:

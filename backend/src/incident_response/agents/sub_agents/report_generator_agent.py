@@ -6,7 +6,7 @@ def create_report_generator_agent() -> LlmAgent:
 
     return LlmAgent(
         name="ReportGeneratorAgent",
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         instruction="""You are an incident report generator. Your job is to create a structured, actionable incident report.
 
 You will receive:

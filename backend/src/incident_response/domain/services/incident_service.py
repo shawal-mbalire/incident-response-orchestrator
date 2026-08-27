@@ -4,6 +4,7 @@ from incident_response.domain.models.report import IncidentReport
 from incident_response.domain.ports.outbound.monitoring import MonitoringPort
 from incident_response.domain.ports.outbound.deployments import DeploymentPort
 from incident_response.domain.ports.outbound.notifications import NotificationPort
+from incident_response.domain.ports.outbound.state_store import StateStorePort
 
 
 class IncidentService:
@@ -17,10 +18,12 @@ class IncidentService:
         monitoring: MonitoringPort,
         deployments: DeploymentPort,
         notifications: NotificationPort,
+        state_store: StateStorePort | None = None,
     ) -> None:
         self._monitoring = monitoring
         self._deployments = deployments
         self._notifications = notifications
+        self._state_store = state_store
         self._reports: dict[str, IncidentReport] = {}
 
     async def analyze_incident(self, alert: Alert) -> IncidentReport:
@@ -65,10 +68,34 @@ class IncidentService:
         )
 
         self._reports[incident.id] = report
+
+        # Persist to state store if available
+        if self._state_store:
+            await self._state_store.save("incidents", incident.id, report.to_dict())
+
         return report
 
     async def get_report(self, incident_id: str) -> IncidentReport | None:
-        return self._reports.get(incident_id)
+        # Try in-memory first
+        if incident_id in self._reports:
+            return self._reports[incident_id]
+
+        # Try state store
+        if self._state_store:
+            data = await self._state_store.load("incidents", incident_id)
+            if data:
+                return IncidentReport(
+                    incident_id=data["incident_id"],
+                    executive_summary=data.get("executive_summary", ""),
+                    timeline=data.get("timeline", []),
+                    root_cause=data.get("root_cause", ""),
+                    confidence=data.get("confidence", "low"),
+                    impact_assessment=data.get("impact_assessment", ""),
+                    recommended_actions=data.get("recommended_actions", []),
+                    supporting_evidence=data.get("supporting_evidence", {}),
+                )
+
+        return None
 
     def _build_summary(
         self, alert: Alert, logs: list, metrics: dict, deploys: list
