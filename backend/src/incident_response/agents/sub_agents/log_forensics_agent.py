@@ -2,13 +2,17 @@ from google.adk.agents import LlmAgent
 
 from incident_response.toolsets.monitoring_toolset import MonitoringToolset
 
+DEFAULT_MODEL = "gemini-3.5-flash"
 
-def create_log_forensics_agent(monitoring_toolset: MonitoringToolset) -> LlmAgent:
+
+def create_log_forensics_agent(
+    monitoring_toolset: MonitoringToolset, model: str = DEFAULT_MODEL
+) -> LlmAgent:
     """Creates the log forensics agent that analyzes error logs."""
 
     return LlmAgent(
         name="LogForensicsAgent",
-        model="gemini-3.5-flash",
+        model=model,
         instruction="""You are a log forensics specialist. Your job is to analyze error logs and identify patterns.
 
 When given a service name and time range:

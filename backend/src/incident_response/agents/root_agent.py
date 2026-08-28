@@ -12,6 +12,7 @@ from incident_response.agents.sub_agents.report_generator_agent import create_re
 def create_root_agent(
     monitoring_toolset: MonitoringToolset,
     deployments_toolset: DeploymentsToolset,
+    model: str = "gemini-3.5-flash",
 ) -> SequentialAgent:
     """Factory: assembles the multi-agent incident response pipeline.
 
@@ -37,9 +38,9 @@ def create_root_agent(
     """
 
     # Create specialized sub-agents
-    log_forensics = create_log_forensics_agent(monitoring_toolset)
-    metrics_analyzer = create_metrics_agent(monitoring_toolset)
-    deploy_tracker = create_deploy_tracker_agent(deployments_toolset)
+    log_forensics = create_log_forensics_agent(monitoring_toolset, model=model)
+    metrics_analyzer = create_metrics_agent(monitoring_toolset, model=model)
+    deploy_tracker = create_deploy_tracker_agent(deployments_toolset, model=model)
 
     # Fan-out: all 3 run concurrently
     parallel_analysis = ParallelAgent(
@@ -49,10 +50,10 @@ def create_root_agent(
     )
 
     # Fan-in: synthesizer combines findings
-    synthesizer = create_synthesizer_agent()
+    synthesizer = create_synthesizer_agent(model=model)
 
     # Report generator
-    report_generator = create_report_generator_agent()
+    report_generator = create_report_generator_agent(model=model)
 
     # Sequential pipeline: parallel → synthesize → report
     return SequentialAgent(

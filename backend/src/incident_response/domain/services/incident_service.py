@@ -67,24 +67,23 @@ class IncidentService:
             },
         )
 
-        self._reports[incident.id] = report
-
-        # Persist to state store if available
+        # Persist to state store (primary), cache in memory
         if self._state_store:
             await self._state_store.save("incidents", incident.id, report.to_dict())
+        self._reports[incident.id] = report
 
         return report
 
     async def get_report(self, incident_id: str) -> IncidentReport | None:
-        # Try in-memory first
+        # Check in-memory cache first
         if incident_id in self._reports:
             return self._reports[incident_id]
 
-        # Try state store
+        # Load from state store
         if self._state_store:
             data = await self._state_store.load("incidents", incident_id)
             if data:
-                return IncidentReport(
+                report = IncidentReport(
                     incident_id=data["incident_id"],
                     executive_summary=data.get("executive_summary", ""),
                     timeline=data.get("timeline", []),
@@ -94,6 +93,8 @@ class IncidentService:
                     recommended_actions=data.get("recommended_actions", []),
                     supporting_evidence=data.get("supporting_evidence", {}),
                 )
+                self._reports[incident_id] = report
+                return report
 
         return None
 

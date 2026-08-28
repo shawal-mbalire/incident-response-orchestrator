@@ -2,6 +2,14 @@ from datetime import datetime, timedelta, timezone
 
 from incident_response.domain.ports.outbound.monitoring import MonitoringPort
 
+_SEVERITY_LEVELS: dict[str, int] = {
+    "DEBUG": 0,
+    "INFO": 1,
+    "WARNING": 2,
+    "ERROR": 3,
+    "CRITICAL": 4,
+}
+
 
 class InMemoryMonitoringAdapter(MonitoringPort):
     """Outbound adapter: in-memory mock for testing and local dev."""
@@ -71,10 +79,11 @@ class InMemoryMonitoringAdapter(MonitoringPort):
             self.seed_logs(service)
 
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+        min_level = _SEVERITY_LEVELS.get(severity.upper(), 0)
         return [
             log
             for log in self._logs
             if log["labels"].get("service") == service
-            and log["severity"] >= severity
+            and _SEVERITY_LEVELS.get(log["severity"], 0) >= min_level
             and datetime.fromisoformat(log["timestamp"]).replace(tzinfo=timezone.utc) >= cutoff
         ]

@@ -4,7 +4,7 @@ resource "google_cloud_run_v2_service" "backend" {
   project  = var.project_id
 
   template {
-    service_account = var.service_account_email
+    service_account = var.backend_service_account_email
 
     containers {
       image = var.backend_image
@@ -46,6 +46,10 @@ resource "google_cloud_run_v2_service" "backend" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
     percent = 100
   }
+
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
 }
 
 resource "google_cloud_run_v2_service" "frontend" {
@@ -54,6 +58,8 @@ resource "google_cloud_run_v2_service" "frontend" {
   project  = var.project_id
 
   template {
+    service_account = var.frontend_service_account_email
+
     containers {
       image = var.frontend_image
 
@@ -79,16 +85,22 @@ resource "google_cloud_run_v2_service" "frontend" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
     percent = 100
   }
+
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
 }
 
+# Backend: only invokable by the frontend service account (not public)
 resource "google_cloud_run_v2_service_iam_member" "backend_invoker" {
   project  = var.project_id
   location = var.region
   name     = google_cloud_run_v2_service.backend.name
   role     = "roles/run.invoker"
-  member   = "allUsers"
+  member   = "serviceAccount:${var.frontend_service_account_email}"
 }
 
+# Frontend: public access
 resource "google_cloud_run_v2_service_iam_member" "frontend_invoker" {
   project  = var.project_id
   location = var.region

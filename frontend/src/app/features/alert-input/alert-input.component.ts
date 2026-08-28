@@ -1,4 +1,4 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { IncidentService } from '../../core/services/incident.service';
 
@@ -9,15 +9,21 @@ import { IncidentService } from '../../core/services/incident.service';
       <h1>Create Alert</h1>
       <p class="description">Trigger an incident analysis for a service.</p>
 
+      @if (error()) {
+        <div class="error-banner">
+          <span>{{ error() }}</span>
+          <button (click)="error.set('')" class="error-dismiss">&times;</button>
+        </div>
+      }
+
       <form (submit)="onSubmit($event)" class="alert-form">
         <div class="form-group">
           <label for="service">Service Name</label>
           <select id="service" [value]="service()" (change)="onServiceChange($event)">
             <option value="">Select a service</option>
-            <option value="api-gateway">API Gateway</option>
-            <option value="user-service">User Service</option>
-            <option value="payment-service">Payment Service</option>
-            <option value="notification-service">Notification Service</option>
+            @for (svc of services(); track svc) {
+              <option [value]="svc">{{ svc }}</option>
+            }
           </select>
         </div>
 
@@ -75,6 +81,27 @@ import { IncidentService } from '../../core/services/incident.service';
     .description {
       color: #6b7280;
       margin: 0 0 1.5rem;
+    }
+
+    .error-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+
+    .error-dismiss {
+      background: none;
+      border: none;
+      color: #991b1b;
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 0 0.25rem;
     }
 
     .alert-form {
@@ -154,7 +181,7 @@ import { IncidentService } from '../../core/services/incident.service';
     }
   `],
 })
-export class AlertInputComponent {
+export class AlertInputComponent implements OnInit {
   private incidentService = inject(IncidentService);
   private router = inject(Router);
 
@@ -162,6 +189,17 @@ export class AlertInputComponent {
   severity = signal('high');
   message = signal('');
   isSubmitting = signal(false);
+  error = signal('');
+  services = signal<string[]>([]);
+
+  async ngOnInit() {
+    try {
+      const data = await this.incidentService.getServices();
+      this.services.set(data);
+    } catch {
+      this.services.set(['api-gateway', 'user-service', 'payment-service', 'notification-service']);
+    }
+  }
 
   onServiceChange(event: Event) {
     this.service.set((event.target as HTMLSelectElement).value);
@@ -184,6 +222,7 @@ export class AlertInputComponent {
     if (!this.isValid() || this.isSubmitting()) return;
 
     this.isSubmitting.set(true);
+    this.error.set('');
     try {
       const report = await this.incidentService.createAlert({
         service: this.service(),
@@ -191,8 +230,9 @@ export class AlertInputComponent {
         message: this.message(),
       });
       this.router.navigate(['/incidents', report.incident_id]);
-    } catch (error) {
-      console.error('Failed to create alert:', error);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create alert';
+      this.error.set(message);
     } finally {
       this.isSubmitting.set(false);
     }

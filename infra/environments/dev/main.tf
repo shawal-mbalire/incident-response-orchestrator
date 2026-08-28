@@ -46,14 +46,15 @@ module "iam" {
 }
 
 module "cloud_run" {
-  source                = "../../modules/cloud_run"
-  project_id            = var.project_id
-  region                = var.region
-  project_name          = var.project_name
-  environment           = var.environment
-  backend_image         = var.backend_image
-  frontend_image        = var.frontend_image
-  service_account_email = module.iam.backend_email
+  source                        = "../../modules/cloud_run"
+  project_id                    = var.project_id
+  region                        = var.region
+  project_name                  = var.project_name
+  environment                   = var.environment
+  backend_image                 = var.backend_image
+  frontend_image                = var.frontend_image
+  backend_service_account_email = module.iam.backend_email
+  frontend_service_account_email = module.iam.frontend_email
 
   depends_on = [google_project_service.required, module.iam]
 }

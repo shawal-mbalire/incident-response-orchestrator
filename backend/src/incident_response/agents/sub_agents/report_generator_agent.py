@@ -1,12 +1,14 @@
 from google.adk.agents import LlmAgent
 
+DEFAULT_MODEL = "gemini-3.5-flash"
 
-def create_report_generator_agent() -> LlmAgent:
+
+def create_report_generator_agent(model: str = DEFAULT_MODEL) -> LlmAgent:
     """Creates the report generator agent that formats the final incident report."""
 
     return LlmAgent(
         name="ReportGeneratorAgent",
-        model="gemini-3.5-flash",
+        model=model,
         instruction="""You are an incident report generator. Your job is to create a structured, actionable incident report.
 
 You will receive:

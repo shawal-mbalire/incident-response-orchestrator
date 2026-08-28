@@ -2,13 +2,17 @@ from google.adk.agents import LlmAgent
 
 from incident_response.toolsets.monitoring_toolset import MonitoringToolset
 
+DEFAULT_MODEL = "gemini-3.5-flash"
 
-def create_metrics_agent(monitoring_toolset: MonitoringToolset) -> LlmAgent:
+
+def create_metrics_agent(
+    monitoring_toolset: MonitoringToolset, model: str = DEFAULT_MODEL
+) -> LlmAgent:
     """Creates the metrics analysis agent that fetches and analyzes performance data."""
 
     return LlmAgent(
         name="MetricsAnalyzerAgent",
-        model="gemini-3.5-flash",
+        model=model,
         instruction="""You are a metrics analysis specialist. Your job is to fetch and analyze performance metrics.
 
 When given a service name and time range:

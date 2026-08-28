@@ -30,8 +30,13 @@ variable "frontend_image" {
   type        = string
 }
 
-variable "service_account_email" {
-  description = "Service account email for Cloud Run"
+variable "backend_service_account_email" {
+  description = "Service account email for the backend Cloud Run service"
+  type        = string
+}
+
+variable "frontend_service_account_email" {
+  description = "Service account email for the frontend Cloud Run service"
   type        = string
 }
 

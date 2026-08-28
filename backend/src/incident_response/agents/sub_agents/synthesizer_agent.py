@@ -1,12 +1,14 @@
 from google.adk.agents import LlmAgent
 
+DEFAULT_MODEL = "gemini-3.5-flash"
 
-def create_synthesizer_agent() -> LlmAgent:
+
+def create_synthesizer_agent(model: str = DEFAULT_MODEL) -> LlmAgent:
     """Creates the synthesizer agent that combines findings from parallel agents."""
 
     return LlmAgent(
         name="SynthesizerAgent",
-        model="gemini-3.5-flash",
+        model=model,
         instruction="""You are an incident synthesis specialist. Your job is to combine findings from multiple analysis agents to identify the root cause.
 
 You will receive:

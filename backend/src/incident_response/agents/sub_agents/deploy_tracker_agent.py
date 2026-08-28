@@ -2,13 +2,17 @@ from google.adk.agents import LlmAgent
 
 from incident_response.toolsets.deployments_toolset import DeploymentsToolset
 
+DEFAULT_MODEL = "gemini-3.5-flash"
 
-def create_deploy_tracker_agent(deployments_toolset: DeploymentsToolset) -> LlmAgent:
+
+def create_deploy_tracker_agent(
+    deployments_toolset: DeploymentsToolset, model: str = DEFAULT_MODEL
+) -> LlmAgent:
     """Creates the deployment tracking agent that checks recent deployments."""
 
     return LlmAgent(
         name="DeployTrackerAgent",
-        model="gemini-3.5-flash",
+        model=model,
         instruction="""You are a deployment tracking specialist. Your job is to check recent deployments and correlate them with incidents.
 
 When given a service name and time range:

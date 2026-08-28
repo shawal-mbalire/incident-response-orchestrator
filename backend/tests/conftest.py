@@ -1,10 +1,18 @@
 import pytest
-from incident_response.adapters.outbound.in_memory.monitoring_adapter import InMemoryMonitoringAdapter
-from incident_response.adapters.outbound.in_memory.deployments_adapter import InMemoryDeploymentsAdapter
-from incident_response.adapters.outbound.in_memory.state_store_adapter import InMemoryStateStoreAdapter
-from incident_response.adapters.outbound.google_cloud.notifications_adapter import PubSubNotificationsAdapter
+
+from incident_response.adapters.outbound.in_memory.monitoring_adapter import (
+    InMemoryMonitoringAdapter,
+)
+from incident_response.adapters.outbound.in_memory.deployments_adapter import (
+    InMemoryDeploymentsAdapter,
+)
+from incident_response.adapters.outbound.in_memory.state_store_adapter import (
+    InMemoryStateStoreAdapter,
+)
+from incident_response.adapters.outbound.in_memory.notifications_adapter import (
+    InMemoryNotificationsAdapter,
+)
 from incident_response.config.container import Container
-from incident_response.domain.services.incident_service import IncidentService
 
 
 @pytest.fixture
@@ -24,7 +32,7 @@ def deployments_adapter():
 
 @pytest.fixture
 def notifications_adapter():
-    return PubSubNotificationsAdapter(project_id="test-project")
+    return InMemoryNotificationsAdapter()
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
-import { Component, signal } from '@angular/core';
-import { httpResource } from '@angular/common/http';
+import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { IncidentService } from '../../core/services/incident.service';
 import { Incident } from '../../core/models/incident.model';
 
 @Component({
@@ -13,14 +13,29 @@ import { Incident } from '../../core/models/incident.model';
         <a routerLink="/alert" class="btn-primary">New Alert</a>
       </header>
 
+      <div class="filters">
+        <select [value]="selectedService()" (change)="onServiceChange($event)">
+          <option value="">All Services</option>
+          @for (svc of services(); track svc) {
+            <option [value]="svc">{{ svc }}</option>
+          }
+        </select>
+        <select [value]="timeRange()" (change)="onTimeRangeChange($event)">
+          <option [value]="15">Last 15 min</option>
+          <option [value]="30">Last 30 min</option>
+          <option [value]="60">Last 1 hour</option>
+          <option [value]="120">Last 2 hours</option>
+        </select>
+      </div>
+
       <div class="metrics-grid">
         <div class="metric-card">
           <span class="metric-value">{{ criticalCount() }}</span>
-          <span class="metric-label">Critical</span>
+          <span class="metric-label">Critical Severity</span>
         </div>
         <div class="metric-card">
           <span class="metric-value">{{ highCount() }}</span>
-          <span class="metric-label">High</span>
+          <span class="metric-label">High Severity</span>
         </div>
         <div class="metric-card">
           <span class="metric-value">{{ totalIncidents() }}</span>
@@ -30,16 +45,16 @@ import { Incident } from '../../core/models/incident.model';
 
       <div class="incidents-section">
         <h2>Recent Incidents</h2>
-        @if (incidents.isLoading()) {
+        @if (loading()) {
           <div class="loading">Loading incidents...</div>
-        } @else if (incidents.value().length === 0) {
+        } @else if (incidents().length === 0) {
           <div class="empty-state">
             <p>No incidents found</p>
             <a routerLink="/alert" class="btn-secondary">Create First Alert</a>
           </div>
         } @else {
           <div class="incidents-list">
-            @for (incident of incidents.value(); track incident.id) {
+            @for (incident of incidents(); track incident.id) {
               <a [routerLink]="['/incidents', incident.id]" class="incident-card">
                 <div class="incident-header">
                   <span class="service-name">{{ incident.service }}</span>
@@ -71,7 +86,7 @@ import { Incident } from '../../core/models/incident.model';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
 
     .dashboard-header h1 {
@@ -79,6 +94,20 @@ import { Incident } from '../../core/models/incident.model';
       font-weight: 600;
       color: #1a1a2e;
       margin: 0;
+    }
+
+    .filters {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .filters select {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      background: white;
     }
 
     .btn-primary {
@@ -218,28 +247,61 @@ import { Incident } from '../../core/models/incident.model';
     }
   `],
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
+  private incidentService = inject(IncidentService);
+
   selectedService = signal('');
   timeRange = signal(30);
+  incidents = signal<Incident[]>([]);
+  services = signal<string[]>([]);
+  loading = signal(false);
 
-  incidents = httpResource<Incident[]>(
-    () => ({
-      url: '/api/incidents',
-      params: {
-        service: this.selectedService(),
-        minutes: this.timeRange(),
-      },
-    }),
-    { defaultValue: [] }
-  );
+  async ngOnInit() {
+    await Promise.all([this.loadIncidents(), this.loadServices()]);
+  }
+
+  async loadIncidents() {
+    this.loading.set(true);
+    try {
+      const data = await this.incidentService.getIncidents(
+        this.selectedService() || undefined,
+        this.timeRange(),
+      );
+      this.incidents.set(data);
+    } catch (err) {
+      console.error('Failed to load incidents:', err);
+      this.incidents.set([]);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async loadServices() {
+    try {
+      const data = await this.incidentService.getServices();
+      this.services.set(data);
+    } catch {
+      this.services.set(['api-gateway', 'user-service', 'payment-service', 'notification-service']);
+    }
+  }
+
+  onServiceChange(event: Event) {
+    this.selectedService.set((event.target as HTMLSelectElement).value);
+    this.loadIncidents();
+  }
+
+  onTimeRangeChange(event: Event) {
+    this.timeRange.set(Number((event.target as HTMLSelectElement).value));
+    this.loadIncidents();
+  }
 
   criticalCount = () =>
-    this.incidents.value().filter((i) => i.confidence === 'high').length;
+    this.incidents().filter((i) => i.confidence === 'high').length;
 
   highCount = () =>
-    this.incidents.value().filter((i) => i.confidence === 'medium').length;
+    this.incidents().filter((i) => i.confidence === 'medium').length;
 
-  totalIncidents = () => this.incidents.value().length;
+  totalIncidents = () => this.incidents().length;
 
   formatDate(iso: string): string {
     return new Date(iso).toLocaleString();

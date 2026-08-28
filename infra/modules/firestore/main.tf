@@ -6,4 +6,8 @@ resource "google_firestore_database" "default" {
 
   concurrency_mode            = "OPTIMISTIC"
   app_engine_integration_mode = "DISABLED"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
