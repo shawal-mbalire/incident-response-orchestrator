@@ -51,7 +51,7 @@ frontend-build:
 
 # Run frontend tests
 frontend-test:
-    cd frontend && npm install --silent 2>/dev/null && npx ng test --watch=false --browsers=ChromeHeadless 2>/dev/null || echo "Frontend tests require Chrome - skipped"
+    cd frontend && npm install --silent 2>/dev/null && FIREFOX_BIN=$(which zen) npx ng test --watch=false --browsers=ZenHeadless 2>/dev/null || echo "Frontend tests require Firefox/Zen - skipped"
 
 # ─── Docker ─────────────────────────────────────────────────────────────────
 

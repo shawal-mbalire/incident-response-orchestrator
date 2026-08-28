@@ -54,6 +54,18 @@
           },
           "defaultConfiguration": "production"
         },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "karmaConfig": "karma.conf.js",
+            "tsConfig": "tsconfig.spec.json",
+            "inlineStyleLanguage": "scss",
+            "styles": [
+              "src/styles.scss"
+            ],
+            "scripts": []
+          }
+        },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
