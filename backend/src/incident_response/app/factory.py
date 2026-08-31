@@ -1,8 +1,8 @@
-from incident_response.config.settings import Settings
-from incident_response.config.container import Container
 from incident_response.agents.root_agent import create_root_agent
-from incident_response.toolsets.monitoring_toolset import MonitoringToolset
+from incident_response.config.container import Container
+from incident_response.config.settings import Settings
 from incident_response.toolsets.deployments_toolset import DeploymentsToolset
+from incident_response.toolsets.monitoring_toolset import MonitoringToolset
 
 
 def create_app(settings: Settings | None = None):
@@ -13,13 +13,12 @@ def create_app(settings: Settings | None = None):
     """
     settings = settings or Settings()
 
-    # Select adapters based on environment
     if settings.environment == "production":
-        from incident_response.adapters.outbound.google_cloud.monitoring_adapter import (
-            CloudMonitoringAdapter,
-        )
         from incident_response.adapters.outbound.google_cloud.deployments_adapter import (
             CloudDeploymentsAdapter,
+        )
+        from incident_response.adapters.outbound.google_cloud.monitoring_adapter import (
+            CloudMonitoringAdapter,
         )
         from incident_response.adapters.outbound.google_cloud.notifications_adapter import (
             PubSubNotificationsAdapter,
@@ -34,38 +33,43 @@ def create_app(settings: Settings | None = None):
         )
         notifications_port = PubSubNotificationsAdapter(project_id=settings.gcp_project_id)
         state_store_port = FirestoreStateStoreAdapter(project_id=settings.gcp_project_id)
+        event_publisher = None  # TODO: Add PubSub event publisher
     else:
-        from incident_response.adapters.outbound.in_memory.monitoring_adapter import (
-            InMemoryMonitoringAdapter,
-        )
         from incident_response.adapters.outbound.in_memory.deployments_adapter import (
             InMemoryDeploymentsAdapter,
         )
-        from incident_response.adapters.outbound.in_memory.state_store_adapter import (
-            InMemoryStateStoreAdapter,
+        from incident_response.adapters.outbound.in_memory.events_adapter import (
+            InMemoryEventPublisher,
+        )
+        from incident_response.adapters.outbound.in_memory.monitoring_adapter import (
+            InMemoryMonitoringAdapter,
         )
         from incident_response.adapters.outbound.in_memory.notifications_adapter import (
             InMemoryNotificationsAdapter,
+        )
+        from incident_response.adapters.outbound.in_memory.state_store_adapter import (
+            InMemoryStateStoreAdapter,
         )
 
         monitoring_port = InMemoryMonitoringAdapter()
         deployments_port = InMemoryDeploymentsAdapter()
         notifications_port = InMemoryNotificationsAdapter()
-        state_store_port = InMemoryStateStoreAdapter()
+        state_store_port = InMemoryStateStoreAdapter(ttl_seconds=settings.cache_ttl_seconds)
+        event_publisher = InMemoryEventPublisher()
 
-    # Wire the container
     container = Container(
         monitoring=monitoring_port,
         deployments=deployments_port,
         notifications=notifications_port,
         state_store=state_store_port,
+        event_publisher=event_publisher,
+        max_cache_size=settings.max_cache_size,
+        settings=settings,
     )
 
-    # Create ADK toolsets from ports
-    monitoring_toolset = MonitoringToolset(monitoring_port)
-    deployments_toolset = DeploymentsToolset(deployments_port)
+    monitoring_toolset = MonitoringToolset(container.incident_service)
+    deployments_toolset = DeploymentsToolset(container.incident_service)
 
-    # Assemble the multi-agent system
     root_agent = create_root_agent(
         monitoring_toolset=monitoring_toolset,
         deployments_toolset=deployments_toolset,

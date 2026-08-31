@@ -49,5 +49,5 @@ variable "min_instances" {
 variable "max_instances" {
   description = "Maximum number of instances"
   type        = number
-  default     = 10
+  default     = 3
 }

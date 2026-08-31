@@ -11,9 +11,10 @@ import uuid
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 
+from incident_response.adapters.inbound.fastapi.dependencies import set_container
+from incident_response.adapters.inbound.fastapi.error_handlers import register_error_handlers
+from incident_response.adapters.inbound.fastapi.router import router
 from incident_response.app.factory import create_app
 from incident_response.config.settings import Settings
 
@@ -49,80 +50,52 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def logging_middleware(request: Request, call_next):
+async def correlation_id_middleware(request: Request, call_next):
+    correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4())[:8])
+    request.state.correlation_id = correlation_id
+
     request_id = str(uuid.uuid4())[:8]
     start = time.perf_counter()
     logger.info(
         "request_started",
-        extra={"request_id": request_id, "method": request.method, "path": request.url.path},
+        extra={
+            "request_id": request_id,
+            "correlation_id": correlation_id,
+            "method": request.method,
+            "path": request.url.path,
+        },
     )
+
     response = await call_next(request)
+
     duration_ms = (time.perf_counter() - start) * 1000
     logger.info(
         "request_completed",
         extra={
             "request_id": request_id,
+            "correlation_id": correlation_id,
             "method": request.method,
             "path": request.url.path,
             "status": response.status_code,
             "duration_ms": round(duration_ms, 2),
         },
     )
+
     response.headers["X-Request-ID"] = request_id
+    response.headers["X-Correlation-ID"] = correlation_id
     return response
 
 
-# Initialize agent and container
 agent, container = create_app(settings)
+set_container(container)
 
-
-class AlertRequest(BaseModel):
-    service: str = Field(..., min_length=1, description="Service name")
-    severity: str = Field(default="high", pattern="^(critical|high|medium|low)$")
-    message: str = Field(..., min_length=1, description="Alert message")
-    metrics: dict = Field(default_factory=dict)
+app.include_router(router)
+register_error_handlers(app)
 
 
 @app.get("/health")
 async def health():
     return {"status": "healthy", "environment": settings.environment}
-
-
-@app.post("/api/alerts")
-async def create_alert(alert_data: AlertRequest):
-    from incident_response.domain.models.alert import Alert
-
-    alert = Alert.from_dict(alert_data.model_dump())
-    report = await container.incident_service.analyze_incident(alert)
-    return report.to_dict()
-
-
-@app.get("/api/incidents")
-async def list_incidents(service: str | None = None, minutes: int = 30):
-    if container.state_store:
-        incidents = await container.state_store.list_collection("incidents", limit=100)
-        return incidents
-    return []
-
-
-@app.get("/api/incidents/{incident_id}/report")
-async def get_report(incident_id: str):
-    report = await container.incident_service.get_report(incident_id)
-    if report is None:
-        return JSONResponse(status_code=404, content={"error": "Report not found"})
-    return report.to_dict()
-
-
-@app.get("/api/services")
-async def list_services():
-    return {
-        "services": [
-            "api-gateway",
-            "user-service",
-            "payment-service",
-            "notification-service",
-        ]
-    }
 
 
 if __name__ == "__main__":

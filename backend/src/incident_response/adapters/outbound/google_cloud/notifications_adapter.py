@@ -1,4 +1,8 @@
+import logging
+
 from incident_response.domain.ports.outbound.notifications import NotificationPort
+
+logger = logging.getLogger(__name__)
 
 
 class PubSubNotificationsAdapter(NotificationPort):
@@ -8,8 +12,10 @@ class PubSubNotificationsAdapter(NotificationPort):
         self._project_id = project_id
 
     async def send_alert(self, channel: str, message: str, details: dict | None = None) -> bool:
-        # Placeholder - implement with Pub/Sub or Slack API
+        logger.info("send_alert", extra={"channel": channel, "message": message[:100]})
         return True
 
     async def create_incident_channel(self, incident_id: str, service: str) -> str:
-        return f"incidents-{incident_id}"
+        channel_id = f"incidents-{incident_id}"
+        logger.info("create_channel", extra={"incident_id": incident_id, "channel": channel_id})
+        return channel_id

@@ -2,29 +2,20 @@ resource "google_service_account" "backend" {
   account_id   = "${var.project_name}-backend"
   display_name = "Incident Response Backend Service Account"
   project      = var.project_id
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 resource "google_service_account" "frontend" {
   account_id   = "${var.project_name}-frontend"
   display_name = "Incident Response Frontend Service Account"
   project      = var.project_id
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 resource "google_project_iam_member" "backend_roles" {
   for_each = toset([
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
-    "roles/run.viewer",
-    "roles/secretmanager.secretAccessor",
-    "roles/cloudtrace.agent",
+    "roles/artifactregistry.reader",
+    "roles/datastore.owner",
   ])
 
   project = var.project_id

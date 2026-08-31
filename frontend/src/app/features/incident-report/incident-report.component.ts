@@ -1,14 +1,15 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { httpResource } from '@angular/common/http';
-import { Report } from '../../core/models/incident.model';
+import { UpperCasePipe } from '@angular/common';
+import { Report, isApiError } from '../../core/models/incident.model';
 
 @Component({
   selector: 'app-incident-report',
-  imports: [RouterLink],
+  imports: [RouterLink, UpperCasePipe],
   template: `
     <div class="report-container">
-      <a routerLink="/" class="back-link">← Back to Dashboard</a>
+      <a routerLink="/" class="back-link">&larr; Back to Dashboard</a>
 
       @if (report.isLoading()) {
         <div class="loading">
@@ -17,7 +18,7 @@ import { Report } from '../../core/models/incident.model';
         </div>
       } @else if (report.error()) {
         <div class="error">
-          <p>Failed to load report</p>
+          <p>{{ getErrorMessage(report.error()) }}</p>
           <button (click)="report.reload()">Retry</button>
         </div>
       } @else if (report.value(); as data) {
@@ -25,6 +26,12 @@ import { Report } from '../../core/models/incident.model';
           <h1>Incident Report</h1>
           <span class="incident-id">{{ data.incident_id }}</span>
         </header>
+
+        @if (data.correlation_id) {
+          <div class="correlation-id">
+            Correlation ID: {{ data.correlation_id }}
+          </div>
+        }
 
         <div class="report-section summary">
           <h2>Executive Summary</h2>
@@ -128,6 +135,16 @@ import { Report } from '../../core/models/incident.model';
       background: #f3f4f6;
       padding: 0.25rem 0.5rem;
       border-radius: 4px;
+    }
+
+    .correlation-id {
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: #6b7280;
+      background: #f3f4f6;
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
     }
 
     .report-section {
@@ -275,6 +292,13 @@ export class IncidentReportComponent {
       url: `/api/incidents/${id}/report`,
     };
   });
+
+  getErrorMessage(err: unknown): string {
+    if (isApiError(err)) {
+      return err.message;
+    }
+    return 'Failed to load report. Please try again.';
+  }
 
   formatTime(iso: string): string {
     return new Date(iso).toLocaleTimeString();

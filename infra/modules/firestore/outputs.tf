@@ -1,4 +1,4 @@
 output "database_name" {
-  description = "Name of the Firestore database"
+  description = "Firestore database name"
   value       = google_firestore_database.default.name
 }

@@ -1,16 +1,19 @@
 import pytest
 
-from incident_response.adapters.outbound.in_memory.monitoring_adapter import (
-    InMemoryMonitoringAdapter,
-)
 from incident_response.adapters.outbound.in_memory.deployments_adapter import (
     InMemoryDeploymentsAdapter,
 )
-from incident_response.adapters.outbound.in_memory.state_store_adapter import (
-    InMemoryStateStoreAdapter,
+from incident_response.adapters.outbound.in_memory.events_adapter import (
+    InMemoryEventPublisher,
+)
+from incident_response.adapters.outbound.in_memory.monitoring_adapter import (
+    InMemoryMonitoringAdapter,
 )
 from incident_response.adapters.outbound.in_memory.notifications_adapter import (
     InMemoryNotificationsAdapter,
+)
+from incident_response.adapters.outbound.in_memory.state_store_adapter import (
+    InMemoryStateStoreAdapter,
 )
 from incident_response.config.container import Container
 
@@ -41,12 +44,24 @@ def state_store_adapter():
 
 
 @pytest.fixture
-def container(monitoring_adapter, deployments_adapter, notifications_adapter, state_store_adapter):
+def event_publisher():
+    return InMemoryEventPublisher()
+
+
+@pytest.fixture
+def container(
+    monitoring_adapter,
+    deployments_adapter,
+    notifications_adapter,
+    state_store_adapter,
+    event_publisher,
+):
     return Container(
         monitoring=monitoring_adapter,
         deployments=deployments_adapter,
         notifications=notifications_adapter,
         state_store=state_store_adapter,
+        event_publisher=event_publisher,
     )
 
 

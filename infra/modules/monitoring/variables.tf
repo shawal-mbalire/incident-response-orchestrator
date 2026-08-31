@@ -9,12 +9,6 @@ variable "project_name" {
 }
 
 variable "backend_service_name" {
-  description = "Name of the backend Cloud Run service"
+  description = "Cloud Run backend service name"
   type        = string
-}
-
-variable "notification_emails" {
-  description = "List of email addresses for alerts"
-  type        = list(string)
-  default     = []
 }

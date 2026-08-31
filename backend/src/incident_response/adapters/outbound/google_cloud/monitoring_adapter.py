@@ -1,9 +1,17 @@
-from datetime import datetime, timedelta, timezone
+import logging
+from datetime import UTC, datetime
 
 from google.cloud import logging as cloud_logging
 from google.cloud import monitoring_v3
 
+from incident_response.domain.exceptions import AdapterError
 from incident_response.domain.ports.outbound.monitoring import MonitoringPort
+from incident_response.domain.value_objects.log_entry import LogEntry
+from incident_response.domain.value_objects.metric_result import MetricResult, MetricValue
+from incident_response.domain.value_objects.severity import Severity
+from incident_response.domain.value_objects.time_range import TimeRange
+
+logger = logging.getLogger(__name__)
 
 
 class CloudMonitoringAdapter(MonitoringPort):
@@ -23,15 +31,14 @@ class CloudMonitoringAdapter(MonitoringPort):
         self,
         service: str,
         metric_types: list[str],
-        minutes: int = 30,
-    ) -> dict:
-        now = datetime.now(timezone.utc)
+        time_range: TimeRange,
+    ) -> MetricResult:
         interval = monitoring_v3.TimeInterval(
-            end_time={"seconds": int(now.timestamp())},
-            start_time={"seconds": int((now - timedelta(minutes=minutes)).timestamp())},
+            end_time={"seconds": int(time_range.end.timestamp())},
+            start_time={"seconds": int(time_range.start.timestamp())},
         )
 
-        results = {}
+        results: dict[str, MetricValue] = {}
         for metric_type in metric_types:
             metric_filter = self._build_metric_filter(service, metric_type)
             request = monitoring_v3.ListTimeSeriesRequest(
@@ -43,58 +50,75 @@ class CloudMonitoringAdapter(MonitoringPort):
 
             try:
                 time_series = self._monitoring_client.list_time_series(request=request)
-                values = []
+                values: list[float] = []
                 for series in time_series:
                     for point in series.points:
-                        values.append(point.value.double_value or point.value.int64_value)
-                results[metric_type] = {
-                    "current": values[-1] if values else 0,
-                    "values": values[-10:],
-                    "unit": self._get_metric_unit(metric_type),
-                }
-            except Exception as e:
-                results[metric_type] = {"error": str(e), "current": 0}
+                        if point.value.double_value is not None:
+                            values.append(point.value.double_value)
+                        elif point.value.int64_value is not None:
+                            values.append(float(point.value.int64_value))
 
-        return results
+                results[metric_type] = MetricValue(
+                    current=values[-1] if values else 0,
+                    values=values[-10:],
+                    unit=self._get_metric_unit(metric_type),
+                )
+            except Exception as e:
+                logger.error(
+                    "fetch_metrics_error",
+                    extra={"service": service, "metric_type": metric_type, "error": str(e)},
+                )
+                results[metric_type] = MetricValue(current=0, values=[], unit="count")
+
+        return MetricResult(metrics=results)
 
     async def query_logs(
         self,
         service: str,
-        severity: str = "ERROR",
-        minutes: int = 30,
-    ) -> list[dict]:
-        logger = self._logging_client.logger("requests")
+        severity: str,
+        time_range: TimeRange,
+    ) -> list[LogEntry]:
+        try:
+            logger_obj = self._logging_client.logger("requests")
 
-        filter_str = (
-            f'resource.type="cloud_run_revision" AND '
-            f'resource.labels.service_name="{service}" AND '
-            f'severity>={severity}'
-        )
+            filter_str = (
+                f'resource.type="cloud_run_revision" AND '
+                f'resource.labels.service_name="{service}" AND '
+                f'severity>={severity}'
+            )
 
-        now = datetime.now(timezone.utc)
-        entries = logger.list_entries(
-            filter_=filter_str,
-            order_by=cloud_logging.DESCENDING,
-            max_results=100,
-        )
+            entries = logger_obj.list_entries(
+                filter_=filter_str,
+                order_by=cloud_logging.DESCENDING,
+                max_results=100,
+            )
 
-        logs = []
-        cutoff = now - timedelta(minutes=minutes)
+            logs: list[LogEntry] = []
+            for entry in entries:
+                entry_time = entry.timestamp.replace(tzinfo=UTC) if entry.timestamp else datetime.now(UTC)
+                if entry_time < time_range.start:
+                    break
 
-        for entry in entries:
-            entry_time = entry.timestamp.replace(tzinfo=timezone.utc) if entry.timestamp else now
-            if entry_time < cutoff:
-                break
+                message = (
+                    entry.payload.get("message", str(entry.payload))
+                    if isinstance(entry.payload, dict)
+                    else str(entry.payload)
+                )
 
-            logs.append({
-                "timestamp": entry_time.isoformat(),
-                "severity": entry.severity or "INFO",
-                "message": entry.payload.get("message", str(entry.payload)) if isinstance(entry.payload, dict) else str(entry.payload),
-                "labels": dict(entry.labels) if entry.labels else {},
-                "trace": entry.trace,
-            })
+                logs.append(
+                    LogEntry(
+                        timestamp=entry_time,
+                        severity=Severity.from_string(entry.severity or "INFO"),
+                        message=message,
+                        labels=dict(entry.labels) if entry.labels else {},
+                        trace=entry.trace,
+                    )
+                )
 
-        return logs
+            return logs
+        except Exception as e:
+            logger.error("query_logs_error", extra={"service": service, "error": str(e)})
+            raise AdapterError("CloudLogging", f"Failed to query logs: {e}", cause=e) from e
 
     def _build_metric_filter(self, service: str, metric_type: str) -> str:
         metric_map = {

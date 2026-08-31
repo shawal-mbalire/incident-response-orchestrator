@@ -1,7 +1,8 @@
 resource "google_cloud_run_v2_service" "backend" {
-  name     = "${var.project_name}-backend"
-  location = var.region
-  project  = var.project_id
+  name                = "${var.project_name}-backend"
+  location            = var.region
+  project             = var.project_id
+  deletion_protection = false
 
   template {
     service_account = var.backend_service_account_email
@@ -30,8 +31,8 @@ resource "google_cloud_run_v2_service" "backend" {
 
       resources {
         limits = {
-          cpu    = "2"
-          memory = "2Gi"
+          cpu    = "1"
+          memory = "1Gi"
         }
       }
     }
@@ -53,9 +54,10 @@ resource "google_cloud_run_v2_service" "backend" {
 }
 
 resource "google_cloud_run_v2_service" "frontend" {
-  name     = "${var.project_name}-frontend"
-  location = var.region
-  project  = var.project_id
+  name                = "${var.project_name}-frontend"
+  location            = var.region
+  project             = var.project_id
+  deletion_protection = false
 
   template {
     service_account = var.frontend_service_account_email

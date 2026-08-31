@@ -1,6 +1,8 @@
 # justfile - Task runner for Incident Response Orchestrator
 # https://github.com/casey/just
 
+set dotenv-load := true
+
 # List available commands
 default:
     @just --list
@@ -53,23 +55,6 @@ frontend-build:
 frontend-test:
     cd frontend && npm install --silent 2>/dev/null && FIREFOX_BIN=$(which zen) npx ng test --watch=false --browsers=ZenHeadless 2>/dev/null || echo "Frontend tests require Firefox/Zen - skipped"
 
-# ─── Docker ─────────────────────────────────────────────────────────────────
-
-# Build backend Docker image
-docker-backend:
-    docker build -t incident-response-backend:latest ./backend
-
-# Build frontend Docker image
-docker-frontend:
-    docker build -t incident-response-frontend:latest ./frontend
-
-# Build all Docker images
-docker-build: docker-backend docker-frontend
-
-# Run backend in Docker
-docker-backend-run:
-    docker run -p 8080:8080 --env-file backend/.env incident-response-backend:latest
-
 # ─── Terraform ──────────────────────────────────────────────────────────────
 
 # Initialize Terraform
@@ -82,11 +67,30 @@ tf-plan:
 
 # Apply Terraform changes
 tf-apply:
-    cd infra/environments/dev && terraform apply
+    cd infra/environments/dev && terraform apply -auto-approve
 
 # Destroy Terraform resources
 tf-destroy:
     cd infra/environments/dev && terraform destroy
+
+# ─── Cloud Build ────────────────────────────────────────────────────────────
+
+# Build backend image with Cloud Build
+cloud-build-backend PROJECT="test-analytics-411507" REGION="us-central1":
+    gcloud builds submit \
+        --tag {{REGION}}-docker.pkg.dev/{{PROJECT}}/incident-response-images/backend:latest \
+        --project={{PROJECT}} \
+        ./backend
+
+# Build frontend image with Cloud Build
+cloud-build-frontend PROJECT="test-analytics-411507" REGION="us-central1":
+    gcloud builds submit \
+        --tag {{REGION}}-docker.pkg.dev/{{PROJECT}}/incident-response-images/frontend:latest \
+        --project={{PROJECT}} \
+        ./frontend
+
+# Build all images with Cloud Build
+cloud-build: cloud-build-backend cloud-build-frontend
 
 # ─── Testing ────────────────────────────────────────────────────────────────
 
@@ -124,3 +128,28 @@ clean:
 # Show project structure
 tree:
     @find . -type f \( -name "*.py" -o -name "*.ts" -o -name "*.tf" -o -name "*.toml" -o -name "*.json" -o -name "*.md" \) | grep -v node_modules | grep -v __pycache__ | sort
+
+# ─── Watch ──────────────────────────────────────────────────────────────────
+
+# Watch all services (cloud logs)
+watch PROJECT="test-analytics-411507" REGION="us-central1":
+    @echo "=== Watching all services ==="
+    @echo "Project: {{PROJECT}}"
+    @echo "Press Ctrl+C to stop"
+    @echo ""
+    @while true; do \
+        gcloud logging read "resource.type=cloud_run_revision" \
+            --project={{PROJECT}} \
+            --format="table(timestamp,resource.labels.service_name,textPayload)" \
+            --freshness=1m --limit=20 2>/dev/null; \
+        sleep 5; \
+    done
+
+# List monitored connectors
+services:
+    @echo "Monitored connectors (configurable via AGENT_MONITORED_SERVICES):"
+    @echo "  - incident-response-backend"
+    @echo "  - incident-response-frontend"
+    @echo ""
+    @echo "Add any GCP service as a connector:"
+    @echo "  AGENT_MONITORED_SERVICES=my-api,my-worker,my-scheduler"

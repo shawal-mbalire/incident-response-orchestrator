@@ -1,6 +1,7 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { IncidentService } from '../../core/services/incident.service';
+import { ApiError, isApiError, validateAlert } from '../../core/models/incident.model';
 
 @Component({
   selector: 'app-alert-input',
@@ -221,6 +222,15 @@ export class AlertInputComponent implements OnInit {
     event.preventDefault();
     if (!this.isValid() || this.isSubmitting()) return;
 
+    const validationErrors = validateAlert({
+      service: this.service(),
+      message: this.message(),
+    });
+    if (validationErrors.length > 0) {
+      this.error.set(validationErrors.join(', '));
+      return;
+    }
+
     this.isSubmitting.set(true);
     this.error.set('');
     try {
@@ -231,7 +241,7 @@ export class AlertInputComponent implements OnInit {
       });
       this.router.navigate(['/incidents', report.incident_id]);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to create alert';
+      const message = isApiError(err) ? err.message : 'Failed to create alert';
       this.error.set(message);
     } finally {
       this.isSubmitting.set(false);

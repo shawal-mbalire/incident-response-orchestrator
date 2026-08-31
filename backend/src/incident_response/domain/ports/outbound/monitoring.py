@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any
+
+from incident_response.domain.value_objects.log_entry import LogEntry
+from incident_response.domain.value_objects.metric_result import MetricResult
+from incident_response.domain.value_objects.time_range import TimeRange
 
 
 class MonitoringPort(ABC):
@@ -10,17 +13,17 @@ class MonitoringPort(ABC):
         self,
         service: str,
         metric_types: list[str],
-        minutes: int = 30,
-    ) -> dict[str, Any]:
-        """Fetch metrics for a service from Cloud Monitoring."""
+        time_range: TimeRange,
+    ) -> MetricResult:
+        """Fetch metrics for a service. Returns typed MetricResult."""
         ...
 
     @abstractmethod
     async def query_logs(
         self,
         service: str,
-        severity: str = "ERROR",
-        minutes: int = 30,
-    ) -> list[dict]:
-        """Query logs for a service from Cloud Logging."""
+        severity: str,
+        time_range: TimeRange,
+    ) -> list[LogEntry]:
+        """Query logs for a service. Returns typed LogEntry list."""
         ...

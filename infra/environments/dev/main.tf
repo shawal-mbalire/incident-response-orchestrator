@@ -19,11 +19,9 @@ locals {
   required_apis = [
     "run.googleapis.com",
     "cloudresourcemanager.googleapis.com",
-    "secretmanager.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     "artifactregistry.googleapis.com",
-    "cloudbuild.googleapis.com",
     "iam.googleapis.com",
     "firestore.googleapis.com",
   ]
@@ -35,6 +33,15 @@ resource "google_project_service" "required" {
   project            = var.project_id
   service            = each.value
   disable_on_destroy = false
+}
+
+module "artifact_registry" {
+  source       = "../../modules/artifact_registry"
+  project_id   = var.project_id
+  region       = var.region
+  project_name = var.project_name
+
+  depends_on = [google_project_service.required]
 }
 
 module "iam" {
@@ -56,7 +63,7 @@ module "cloud_run" {
   backend_service_account_email = module.iam.backend_email
   frontend_service_account_email = module.iam.frontend_email
 
-  depends_on = [google_project_service.required, module.iam]
+  depends_on = [google_project_service.required, module.iam, module.artifact_registry]
 }
 
 module "monitoring" {
@@ -69,10 +76,9 @@ module "monitoring" {
 }
 
 module "firestore" {
-  source       = "../../modules/firestore"
-  project_id   = var.project_id
-  project_name = var.project_name
-  region       = var.region
+  source     = "../../modules/firestore"
+  project_id = var.project_id
+  region     = var.region
 
   depends_on = [google_project_service.required]
 }

@@ -1,0 +1,27 @@
+# Traefik dynamic configuration
+http:
+  routers:
+    api:
+      rule: "PathPrefix(`/api`)"
+      service: backend
+      entryPoints:
+        - web
+      priority: 100
+
+    frontend:
+      rule: "PathPrefix(`/`)"
+      service: frontend-spa
+      entryPoints:
+        - web
+      priority: 1
+
+  services:
+    backend:
+      loadBalancer:
+        servers:
+          - url: "https://incident-response-backend-nkpzqdusca-uc.a.run.app"
+
+    frontend-spa:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:3000"

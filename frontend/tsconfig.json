@@ -11,6 +11,7 @@
     "sourceMap": true,
     "declaration": false,
     "downlevelIteration": true,
+    "ignoreDeprecations": "6.0",
     "experimentalDecorators": true,
     "moduleResolution": "bundler",
     "importHelpers": true,

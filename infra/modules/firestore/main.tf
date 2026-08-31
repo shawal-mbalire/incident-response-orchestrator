@@ -6,8 +6,19 @@ resource "google_firestore_database" "default" {
 
   concurrency_mode            = "OPTIMISTIC"
   app_engine_integration_mode = "DISABLED"
+}
 
-  lifecycle {
-    prevent_destroy = true
+resource "google_firestore_index" "incidents_service_created" {
+  project    = var.project_id
+  collection = "incidents"
+
+  fields {
+    field_path = "service"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "created_at"
+    order      = "DESCENDING"
   }
 }
